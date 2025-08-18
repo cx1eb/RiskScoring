@@ -336,6 +336,14 @@
     .calc-table td:last-child {
         text-align: right;
     }
+
+    .calc-table th.sortable { 
+        cursor: pointer; user-select: none; 
+    }
+
+    .calc-table th .arrow { 
+        margin-left: 6px; opacity:.7; 
+    }
 </style>
 </head>
 <body>
@@ -578,26 +586,66 @@ function makeTargets(){
 
 const calcDetails = document.getElementById('calcDetails');
 
-function updateCalcTable() {
-  let html = `<table><thead><tr>
-                <th>Category</th>
-                <th>Weight %</th>
-                <th>Value (0–5)</th>
-                <th>Contribution (pts)</th>
-              </tr></thead><tbody>`;
-  CATEGORIES.forEach(c=>{
-    const val = state[c.key];
-    const contrib = (c.w/100 * val).toFixed(2);
-    html += `<tr>
-              <td>${c.label}</td>
-              <td>${c.w}%</td>
-              <td>${val}</td>
-              <td>${contrib}</td>
-             </tr>`;
+let calcSort = { key: 'label', dir: 'asc' };
+
+function sortRows(rows, key, dir){
+  const mult = dir === 'asc' ? 1 : -1;
+  return rows.sort((a,b)=>{
+    const va = a[key], vb = b[key];
+    if (typeof va === 'string' || typeof vb === 'string') {
+      return mult * String(va).localeCompare(String(vb), undefined, {sensitivity:'base'});
+    }
+    return mult * (va - vb);
   });
-  html += `</tbody></table>`;
-  calcDetails.innerHTML = html;
 }
+
+function updateCalcTable() {
+  const rows = CATEGORIES.map(c=>{
+    const val = state[c.key];
+    const contrib = (c.w/100 * val);
+    return { label: c.label, w: c.w, val, contrib: Number(contrib.toFixed(2)) };
+  });
+
+  sortRows(rows, calcSort.key, calcSort.dir);
+
+  const arrow = calcSort.dir === 'asc' ? '▲' : '▼';
+  const headHTML = `
+    <thead><tr>
+      <th class="sortable" data-key="label">Category ${calcSort.key==='label'?`<span class="arrow">${arrow}</span>`:''}</th>
+      <th class="sortable" data-key="w">Weight % ${calcSort.key==='w'?`<span class="arrow">${arrow}</span>`:''}</th>
+      <th class="sortable" data-key="val">Value (0–5) ${calcSort.key==='val'?`<span class="arrow">${arrow}</span>`:''}</th>
+      <th class="sortable" data-key="contrib">Contribution (pts) ${calcSort.key==='contrib'?`<span class="arrow">${arrow}</span>`:''}</th>
+    </tr></thead>`;
+
+  const bodyHTML = rows.map(r=>`
+    <tr>
+      <td>${r.label}</td>
+      <td>${r.w}%</td>
+      <td>${r.val}</td>
+      <td>${r.contrib.toFixed(2)}</td>
+    </tr>`).join('');
+
+  calcDetails.innerHTML = `<table>${headHTML}<tbody>${bodyHTML}</tbody></table>`;
+
+  bindCalcSortHandlers();
+}
+
+function bindCalcSortHandlers(){
+  const ths = calcDetails.querySelectorAll('th.sortable');
+  ths.forEach(th=>{
+    th.onclick = () => {
+      const key = th.getAttribute('data-key');
+      if (calcSort.key === key){
+        calcSort.dir = (calcSort.dir === 'asc') ? 'desc' : 'asc';
+      } else {
+        calcSort.key = key;
+        calcSort.dir = 'asc';
+      }
+      updateCalcTable();
+    };
+  });
+}
+
 
 let target = makeTargets();
 let current = target.map(v=>0);
