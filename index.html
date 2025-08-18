@@ -698,15 +698,13 @@ function updateOutputs(){
 }
 function scheduleAll(){ scheduleUpdate(); updateOutputs(); }
 
-document.getElementById('presetHi').addEventListener('click', ()=>{
-  const preset = { 
-    cvss: 5, explAvail: 5, activeWild: 5, vector: 5, human: 5,
-    criticality: 5, internet: 5, apt: 4, ctrls: 5, env: 5, intel: 4,
-    time: 4, patchable: 4, chain: 4, epss: 5, geo: 3, impact: 5, sla: 4 
-  };
 
-  CATEGORIES.forEach(cat=>{
-    const val = preset[cat.key] ?? 0;
+
+
+
+function applyPreset(getValue) {
+  CATEGORIES.forEach(cat => {
+    const val = Math.max(0, Math.min(5, Math.round(getValue(cat))));
     state[cat.key] = val;
     const sel = document.getElementById(cat.key);
     if (sel) {
@@ -715,26 +713,45 @@ document.getElementById('presetHi').addEventListener('click', ()=>{
     }
   });
   scheduleAll();
-});
+}
 
-document.getElementById('presetLow').addEventListener('click', ()=>{
-  const preset = { 
-    cvss: 1, explAvail: 0, activeWild: 0, vector: 1, human: 1,
-    criticality: 1, internet: 0, apt: 0, ctrls: 2, env: 1, intel: 1,
-    time: 0, patchable: 2, chain: 0, epss: 0, geo: 0, impact: 1, sla: 1 
-  };
-
-  CATEGORIES.forEach(cat=>{
-    const val = preset[cat.key] ?? 0;
-    state[cat.key] = val;
-    const sel = document.getElementById(cat.key);
-    if (sel) {
-      sel.value = val;
-      updateSelectColor(sel, val);
+const PRESETS = {
+  high: {
+    fallback: () => 5,
+    overrides: { apt: 4, intel: 4, geo: 3, sla: 4 }
+  },
+  low: {
+    fallback: () => 0,
+    overrides: {
+      cvss: 1, vector: 1, human: 1, criticality: 1,
+      ctrls: 2, env: 1, intel: 1, patchable: 2,
+      impact: 1, sla: 1
     }
-  });
-  scheduleAll();
-});
+  }
+};
+
+function runPreset(name) {
+  const p = PRESETS[name];
+  applyPreset(cat => p.overrides[cat.key] ?? p.fallback(cat));
+}
+
+function runRandom() {
+  applyPreset(() => Math.floor(Math.random() * 6));
+}
+
+function runReset() {
+  applyPreset(() => 0);
+}
+
+document.getElementById('presetHi')?.addEventListener('click', () => runPreset('high'));
+document.getElementById('presetLow')?.addEventListener('click', () => runPreset('low'));
+document.getElementById('presetRand')?.addEventListener('click', runRandom);
+document.getElementById('reset')?.addEventListener('click', runReset);
+
+
+
+
+
 
 document.getElementById('presetRand').addEventListener('click', ()=>{
   CATEGORIES.forEach(cat=>{
