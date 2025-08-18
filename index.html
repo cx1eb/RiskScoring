@@ -353,8 +353,10 @@
       <div class="head">
         <strong>Inputs</strong>
         <div>
-          <button id="presetHi">High-risk example</button>
-          <button id="reset" class="ghost">Reset</button>
+            <button id="presetHi">High-risk example</button>
+            <button id="presetLow">Low-risk example</button>
+            <button id="presetRand">Random example</button>
+            <button id="reset" class="ghost">Reset</button>
         </div>
       </div>
       <div class="body">
@@ -705,6 +707,38 @@ document.getElementById('presetHi').addEventListener('click', ()=>{
 
   CATEGORIES.forEach(cat=>{
     const val = preset[cat.key] ?? 0;
+    state[cat.key] = val;
+    const sel = document.getElementById(cat.key);
+    if (sel) {
+      sel.value = val;
+      updateSelectColor(sel, val);
+    }
+  });
+  scheduleAll();
+});
+
+document.getElementById('presetLow').addEventListener('click', ()=>{
+  const preset = { 
+    cvss: 1, explAvail: 0, activeWild: 0, vector: 1, human: 1,
+    criticality: 1, internet: 0, apt: 0, ctrls: 2, env: 1, intel: 1,
+    time: 0, patchable: 2, chain: 0, epss: 0, geo: 0, impact: 1, sla: 1 
+  };
+
+  CATEGORIES.forEach(cat=>{
+    const val = preset[cat.key] ?? 0;
+    state[cat.key] = val;
+    const sel = document.getElementById(cat.key);
+    if (sel) {
+      sel.value = val;
+      updateSelectColor(sel, val);
+    }
+  });
+  scheduleAll();
+});
+
+document.getElementById('presetRand').addEventListener('click', ()=>{
+  CATEGORIES.forEach(cat=>{
+    const val = Math.floor(Math.random() * 6);
     state[cat.key] = val;
     const sel = document.getElementById(cat.key);
     if (sel) {
