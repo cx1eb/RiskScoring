@@ -149,25 +149,42 @@
     }
 
     
-    select[data-color="low"] {
-        background: linear-gradient(180deg, rgba(139, 92, 246, .35), rgba(139, 92, 246, .15));
-        border-color: rgba(139, 92, 246, .45);
-        color: #f3e8ff;
+    select[data-color="0"] {
+        background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+        border-color: var(--stroke);
+        color: var(--text);
     }
 
-    
-    select[data-color="med"] {
-        background: linear-gradient(180deg, rgba(251, 146, 60, .35), rgba(251, 146, 60, .15));
+    select[data-color="1"] {
+        background: linear-gradient(180deg, rgba(139, 92, 246, .35), rgba(139, 92, 246, .15));
+        border-color: rgba(139, 92, 246, .45);
+        color: #dbeafe;
+    }
+
+    select[data-color="2"] {
+        background: linear-gradient(180deg, rgba(16, 185, 129, .35), rgba(16, 185, 129, .15)); /* green */
+        border-color: rgba(16, 185, 129, .45);
+        color: #d1fae5;
+    }
+
+    select[data-color="3"] {
+        background: linear-gradient(180deg, rgba(234, 179, 8, .35), rgba(234, 179, 8, .15)); /* yellow */
+        border-color: rgba(234, 179, 8, .45);
+        color: #fef9c3;
+    }
+
+    select[data-color="4"] {
+        background: linear-gradient(180deg, rgba(251, 146, 60, .35), rgba(251, 146, 60, .15)); /* orange */
         border-color: rgba(251, 146, 60, .45);
         color: #fff7ed;
     }
 
-    
-    select[data-color="high"] {
-        background: linear-gradient(180deg, rgba(239, 68, 68, .35), rgba(239, 68, 68, .15));
+    select[data-color="5"] {
+        background: linear-gradient(180deg, rgba(239, 68, 68, .35), rgba(239, 68, 68, .15)); /* red */
         border-color: rgba(239, 68, 68, .45);
         color: #fee2e2;
     }
+
 
 
     select option {
@@ -423,13 +440,7 @@ const THRESHOLDS = [
 const state = Object.fromEntries(CATEGORIES.map(c=>[c.key,0]));
 
 function updateSelectColor(sel, val) {
-  if (val === 0) {
-    sel.dataset.color = "default";
-    return;
-  }
-  if (val <= 1) sel.dataset.color = "low";
-  else if (val <= 3) sel.dataset.color = "med";
-  else sel.dataset.color = "high";
+  sel.dataset.color = String(val);
 }
 
 
