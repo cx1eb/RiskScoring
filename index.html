@@ -1,0 +1,732 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Risk Scoring</title>
+<style>
+    :root {
+        --bg: linear-gradient(120deg, rgba(30, 30, 30, 1) 0%, rgba(20, 20, 20, 1) 100%);
+        --panel: rgba(255, 255, 255, 0.055);
+        --panel-2: rgba(255, 255, 255, 0.038);
+        --stroke: rgba(255, 255, 255, 0.12);
+        --text: #ededf1;
+        --muted: #a9adb7;
+
+        --pink: #ec4899;
+        --purple: #8b5cf6;
+        --radius: 16px;
+        --shadow: 0 12px 30px rgba(0, 0, 0, .38), inset 0 1px 0 rgba(255, 255, 255, .04);
+    }
+
+    * {
+        box-sizing: border-box
+    }
+
+    html,
+    body {
+        height: 100%
+    }
+
+    body {
+        margin: 0;
+        color: var(--text);
+        background: var(--bg);
+        background-attachment: fixed;
+        font-family: ui-sans-serif, system-ui, "Segoe UI", Roboto, Helvetica, Arial;
+    }
+
+    .wrap {
+        max-width: 1100px;
+        margin: 28px auto 56px;
+        padding: 0 16px
+    }
+
+    header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 12px
+    }
+
+    h1 {
+        font-size: clamp(20px, 4vw, 26px);
+        margin: 0
+    }
+
+    .pill {
+        display: inline-flex;
+        gap: 8px;
+        align-items: center;
+        padding: 6px 10px;
+        border-radius: 999px;
+        border: 1px solid var(--stroke);
+        background: rgba(255, 255, 255, .05);
+        font-size: 12px
+    }
+
+    .card {
+        background: var(--panel);
+        border: 1px solid var(--stroke);
+        border-radius: var(--radius);
+        box-shadow: var(--shadow);
+        backdrop-filter: blur(8px);
+        margin-top: 16px
+    }
+
+    .card .head {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 14px 16px;
+        border-bottom: 1px solid var(--stroke);
+    }
+
+    .overlayText {
+        font-weight: 700;
+        font-size: 13px;
+        color: #fff;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, .45);
+    }
+
+    .card .body {
+        padding: 16px
+    }
+
+    .controls {
+        display: grid;
+        gap: 10px;
+        grid-template-columns: repeat(2, minmax(260px, 1fr))
+    }
+
+    @media (max-width:760px) {
+        .controls {
+            grid-template-columns: 1fr
+        }
+    }
+
+    .row {
+        background: var(--panel-2);
+        border: 1px solid var(--stroke);
+        border-radius: 14px;
+        padding: 10px;
+        display: grid;
+        gap: 8px
+    }
+
+    .row label {
+        display: flex;
+        justify-content: space-between;
+        gap: 10px;
+        font-size: 12px;
+        color: var(--muted)
+    }
+
+    .select-wrap {
+        position: relative
+    }
+
+    select {
+        width: 100%;
+        padding: 12px 40px 12px 12px;
+        border-radius: 12px;
+        border: 1px solid var(--stroke);
+        font-size: 14px;
+        font-weight: 600;
+        color: var(--text);
+        outline: none;
+        appearance: none;
+        -webkit-appearance: none;
+        transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease;
+        cursor: pointer;
+    }
+    
+    select:not([data-color]),
+    select[data-color="default"] {
+        background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .03));
+        border-color: var(--stroke);
+        color: var(--text);
+    }
+
+    
+    select[data-color="low"] {
+        background: linear-gradient(180deg, rgba(139, 92, 246, .35), rgba(139, 92, 246, .15));
+        border-color: rgba(139, 92, 246, .45);
+        color: #f3e8ff;
+    }
+
+    
+    select[data-color="med"] {
+        background: linear-gradient(180deg, rgba(251, 146, 60, .35), rgba(251, 146, 60, .15));
+        border-color: rgba(251, 146, 60, .45);
+        color: #fff7ed;
+    }
+
+    
+    select[data-color="high"] {
+        background: linear-gradient(180deg, rgba(239, 68, 68, .35), rgba(239, 68, 68, .15));
+        border-color: rgba(239, 68, 68, .45);
+        color: #fee2e2;
+    }
+
+
+    select option {
+        background: #17181c;
+        color: #f3f3f3
+    }
+
+    .select-wrap::after {
+        content: "▾";
+        position: absolute;
+        right: 12px;
+        top: 50%;
+        transform: translateY(-50%);
+        color: var(--muted);
+        pointer-events: none;
+        font-weight: 700
+    }
+
+    button {
+        appearance: none;
+        border: 1px solid var(--stroke);
+        color: var(--text);
+        background: linear-gradient(180deg, rgba(255, 255, 255, .09), rgba(255, 255, 255, .03));
+        border-radius: 12px;
+        padding: 9px 12px;
+        cursor: pointer;
+        font-weight: 600;
+        transition: transform .1s ease, border-color .2s ease, background .2s ease
+    }
+
+    button:hover {
+        transform: translateY(-1px);
+        border-color: rgba(255, 255, 255, .24)
+    }
+
+    .ghost {
+        background: transparent
+    }
+
+    
+    .graph-wrap {
+        position: relative;
+        width: 100%;
+        height: 360px
+    }
+
+    canvas#chart {
+        width: 100%;
+        height: 100%;
+        display: block;
+        filter: drop-shadow(0 12px 20px rgba(0, 0, 0, .45))
+    }
+
+    .overlayText {
+        position: absolute;
+        right: 12px;
+        top: 2px;
+        font-weight: 700;
+        font-size: 13px;
+        color: #fff;
+        text-shadow: 0 2px 8px rgba(0, 0, 0, .45)
+    }
+    
+    footer.site-footer {
+        width: 100%;
+        background: var(--panel);
+        color: var(--muted);
+        text-align: center;
+        padding: 18px 0 14px 0;
+        font-size: 13px;
+        border-top: 1px solid var(--stroke);
+        margin-top: 40px;
+        box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.08);
+    }
+    
+    ul.list {
+        margin: 6px 0 0 18px;
+        padding: 0
+    }
+
+    ul.list li {
+        margin: 6px 0
+    }
+
+    
+    ::-webkit-scrollbar {
+        width: 12px;
+        height: 12px
+    }
+
+    ::-webkit-scrollbar-track {
+        background: #121316;
+        border-left: 1px solid rgba(255, 255, 255, .06)
+    }
+
+    ::-webkit-scrollbar-thumb {
+        background: linear-gradient(180deg, rgba(139, 92, 246, .7), rgba(236, 72, 153, .7));
+        border-radius: 999px;
+        border: 2px solid #121316
+    }
+
+    ::-webkit-scrollbar-thumb:hover {
+        background: linear-gradient(180deg, rgba(139, 92, 246, .9), rgba(236, 72, 153, .9))
+    }
+
+    * {
+        scrollbar-color: rgba(139, 92, 246, .8) #121316;
+        scrollbar-width: thin
+    }
+
+    .fade {
+        animation: fade .5s ease both
+    }
+
+    @keyframes fade {
+        from {
+            opacity: 0;
+            transform: translateY(6px)
+        }
+
+        to {
+            opacity: 1;
+            transform: none
+        }
+    }
+
+    .calc-table {
+        overflow-x: auto;
+    }
+
+    .calc-table table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 13px;
+    }
+
+    .calc-table th,
+    .calc-table td {
+        padding: 6px 8px;
+        border-bottom: 1px solid var(--stroke);
+        text-align: left;
+    }
+
+    .calc-table th {
+        color: var(--muted);
+        font-weight: 600;
+    }
+
+    .calc-table td:last-child {
+        text-align: right;
+    }
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <h1>Risk Scoring</h1>
+      <div class="legend">
+        <span class="pill">Score: <b id="scoreVal">0.00</b> / 5</span>
+        <span class="pill">Window: <b id="windowVal">—</b></span>
+        <span class="pill" id="decisionPill">Decision pending</span>
+      </div>
+    </header>
+
+    <section class="card fade">
+      <div class="head">
+        <strong>Inputs</strong>
+        <div>
+          <button id="presetHi">High-risk example</button>
+          <button id="reset" class="ghost">Reset</button>
+        </div>
+      </div>
+      <div class="body">
+        <div id="controls" class="controls"></div>
+      </div>
+    </section>
+
+    <section class="card fade">
+        <div class="head"><strong>Calculation Details</strong></div>
+        <div class="body">
+            <div id="calcDetails" class="calc-table"></div>
+        </div>
+    </section>
+
+    <section class="card fade">
+    <div class="head">
+        <strong>Graph</strong>
+        <div id="overlay" class="overlayText"></div>
+    </div>
+    <div class="body">
+        <div class="graph-wrap">
+        <canvas id="chart" width="1200" height="680" aria-label="Risk graph"></canvas>
+        </div>
+    </div>
+    </section>
+
+    <section class="card fade">
+      <div class="head"><strong>Suggested Actions</strong></div>
+      <div class="body">
+        <ul id="suggestions" class="list"></ul>
+      </div>
+    </section>
+  </div>
+
+
+<script>
+// DATA SECTION: To add more categories, add an object to CATEGORIES like below:
+// {key:'newkey', w:weightPercent, label:'Display Name'},
+// Example:
+// {key:'newcat', w:4, label:'New Category Placeholder'},
+// NOTE: Aim for weights to sum to ~100 so the overall score stays in a 0–5 range.
+// If weights differ significantly, update THRESHOLDS or clamp score before decisionFor.
+const CATEGORIES = [
+  {key:'cvss', w:10, label:'CVSS Severity'},
+  {key:'explAvail', w:10, label:'Exploit Availability'},
+  {key:'activeWild', w:10, label:'Actively Exploited'},
+  {key:'vector', w:5, label:'Exploitation Vector'},
+  {key:'human', w:5, label:'Human Interaction'},
+  {key:'criticality', w:10, label:'Server Criticality'},
+  {key:'internet', w:10, label:'Internet Exposure'},
+  {key:'apt', w:5, label:'APT Association'},
+  {key:'ctrls', w:5, label:'Compensating Controls'},
+  {key:'env', w:5, label:'Environment Tier'},
+  {key:'intel', w:5, label:'Threat Intel Priority'},
+  {key:'time', w:3, label:'Time Since Disclosure'},
+  {key:'patchable', w:3, label:'Patch Achievability'},
+  {key:'chain', w:3, label:'Chaining Potential'},
+  {key:'epss', w:3, label:'Exploit Prediction Scoring'},
+  {key:'geo', w:2, label:'Geo Specific Relevance'},
+  {key:'impact', w:3, label:'User/Customer Impact'},
+  {key:'sla', w:3, label:'SLA Impact'},
+  // {key:'newcat', w:4, label:'New Category Placeholder'}, // <-- Example placeholder
+];
+
+
+// THRESHOLDS: Customize patch windows and labels as needed.
+// Each object sets the minimum score and the corresponding patch window label.
+// You can add, remove, or change these for more specific guidance (e.g., add more granular windows, change timeframes, or use custom labels).
+// IMPORTANT: Keep thresholds sorted descending by min, e.g. [{min:4.5}, {min:3.8}, ... , {min:-Infinity}]
+// If weights don't sum to ~100, consider clamping the score before calling decisionFor.
+// Example:
+// {min:4.5, label:'Patch in 3 days'},
+// {min:3.8, label:'Patch in 7 days'},
+// ...
+const THRESHOLDS = [
+  {min:3.8, label:'Patch in 7 days'},
+  {min:3.0, label:'Patch in 14 days'},
+  {min:2.0, label:'Patch in 21 days'},
+  {min:-Infinity, label:'Patch in 60 days'},
+];
+
+
+const state = Object.fromEntries(CATEGORIES.map(c=>[c.key,0]));
+
+function updateSelectColor(sel, val) {
+  if (val === 0) {
+    sel.dataset.color = "default";
+    return;
+  }
+  if (val <= 1) sel.dataset.color = "low";
+  else if (val <= 3) sel.dataset.color = "med";
+  else sel.dataset.color = "high";
+}
+
+
+const controls = document.getElementById('controls');
+function buildSelect(id){
+  const wrap = document.createElement('div'); wrap.className='select-wrap';
+  const sel = document.createElement('select'); sel.id=id; sel.setAttribute('aria-label', id);
+  sel.dataset.color = "default";
+
+  for(let i=0;i<=5;i++){ 
+    const o=document.createElement('option'); 
+    o.value=i; 
+    o.textContent=i; 
+    sel.appendChild(o); 
+  }
+
+  sel.addEventListener('input',()=>{
+    state[id] = Number(sel.value);
+    updateSelectColor(sel, state[id]);
+    scheduleAll();
+  });
+
+  wrap.appendChild(sel); 
+  return wrap;
+}
+
+
+CATEGORIES.forEach(c=>{
+  const row = document.createElement('div'); row.className='row';
+  const lbl = document.createElement('label'); lbl.htmlFor = c.key;
+  lbl.innerHTML=`<span>${c.label}</span><span>${c.w}%</span>`;
+  row.append(lbl, buildSelect(c.key));
+  controls.appendChild(row);
+});
+
+const scoreEl = document.getElementById('scoreVal');
+const windowEl = document.getElementById('windowVal');
+const pill = document.getElementById('decisionPill');
+const suggEl = document.getElementById('suggestions');
+const overlay = document.getElementById('overlay');
+
+function weightedScore(){ return CATEGORIES.reduce((a,c)=> a + (c.w/100)*state[c.key], 0) }
+function decisionFor(score){ return THRESHOLDS.find(t=> score >= t.min).label }
+function setPill(text, score) {
+  const s = Math.min(Math.max(score, 0), 5);
+  let hue;
+  if (s <= 2.5) {
+    hue = 280 - (s / 2.5) * (280 - 30);
+  } else {
+    hue = 30 - ((s - 2.5) / 2.5) * 30;
+  }
+  pill.textContent = text;
+  pill.style.borderColor = `hsla(${hue}, 90%, 60%, .45)`;
+  pill.style.boxShadow   = `0 0 0 1px hsla(${hue}, 90%, 60%, .28) inset`;
+}
+
+
+// SUGGESTION_RULES: Customize suggestions and their conditions as needed.
+// Each object should have a 'text' (the suggestion) and a 'condition' (function returning true/false based on state).
+// You can add, remove, or change rules to match new categories, thresholds, or business logic.
+// Values are integers 0–5. Using <= 0.5 triggers only at 0; use <= 1 for "low". Exact equality (===) is strict; use >= for ranges if needed.
+// Example:
+// {
+//   text: "Custom suggestion text.",
+//   condition: (state) => state.newcat >= 3
+// },
+const SUGGESTION_RULES = [
+  {
+    text: "CISA KEV: treat as emergency; patch/mitigate immediately, add detections, monitor IOCs.",
+    condition: (state) => state.activeWild >= 5
+  },
+  {
+    text: "Internet-exposed: put behind WAF/reverse proxy, enforce allowlists, rate-limit endpoints.",
+    condition: (state) => state.internet >= 4
+  },
+  {
+    text: "Public exploit: accelerate patching; deploy virtual patching (WAF/IPS); tighten logging.",
+    condition: (state) => state.explAvail >= 4
+  },
+  {
+    text: "Network-reachable: restrict ingress ports and segment access.",
+    condition: (state) => state.vector === 5
+  },
+  {
+    text: "Add MFA, WAF/IPS rules, least-privilege and monitoring to compensate.",
+    condition: (state) => state.ctrls <= 0.5
+  },
+  {
+    text: "High-criticality: schedule immediate maintenance window and prepare rollback.",
+    condition: (state) => state.criticality >= 4
+  },
+  {
+    text: "Patch unavailable: apply vendor mitigations, disable vulnerable features, sandbox, isolate.",
+    condition: (state) => state.patchable <= 0.5
+  }
+];
+
+
+const DEFAULT_SUGGESTION =
+  "Patch per window; keep monitoring EPSS/KEV; enhance logs/alerts.";
+
+
+function suggestions() {
+  const list = SUGGESTION_RULES
+    .filter(rule => rule.condition(state))
+    .map(rule => rule.text);
+
+  if (list.length === 0) list.push(DEFAULT_SUGGESTION);
+  return list.slice(0, 6);
+}
+
+
+
+const canvas = document.getElementById('chart');
+const ctx = canvas.getContext('2d');
+let dpi = 1;
+
+function resizeCanvas(){
+  const r = canvas.getBoundingClientRect();
+  dpi = window.devicePixelRatio || 1;
+  canvas.width = Math.round(r.width * dpi);
+  canvas.height = Math.round(r.height * dpi);
+  ctx.setTransform(dpi,0,0,dpi,0,0);
+}
+window.addEventListener('resize', resizeCanvas,{passive:true}); resizeCanvas();
+
+function makeTargets(){
+  const vals = CATEGORIES.map(c => state[c.key] / 5);
+  const total = Math.min(Math.max(weightedScore(),0),5)/5;
+  vals.push(total);
+  return vals;
+}
+
+const calcDetails = document.getElementById('calcDetails');
+
+function updateCalcTable() {
+  let html = `<table><thead><tr>
+                <th>Category</th>
+                <th>Weight %</th>
+                <th>Value (0–5)</th>
+                <th>Contribution (pts)</th>
+              </tr></thead><tbody>`;
+  CATEGORIES.forEach(c=>{
+    const val = state[c.key];
+    const contrib = (c.w/100 * val).toFixed(2);
+    html += `<tr>
+              <td>${c.label}</td>
+              <td>${c.w}%</td>
+              <td>${val}</td>
+              <td>${contrib}</td>
+             </tr>`;
+  });
+  html += `</tbody></table>`;
+  calcDetails.innerHTML = html;
+}
+
+let target = makeTargets();
+let current = target.map(v=>0);
+let rippleAmp = 0;
+let phase = 0;
+function scheduleUpdate(){ target = makeTargets(); rippleAmp = 18; }
+
+function lerp(a,b,t){ return a+(b-a)*t }
+function clamp(n,min,max){ return Math.max(min,Math.min(max,n)) }
+function grid(w,h){
+  ctx.save();
+  ctx.strokeStyle='rgba(255,255,255,0.07)';
+  ctx.lineWidth=1;
+  const stepX = Math.round(w/12), stepY = Math.round(h/6);
+  for(let x=0;x<=w;x+=stepX){ ctx.beginPath(); ctx.moveTo(x,0); ctx.lineTo(x,h); ctx.stroke() }
+  for(let y=0;y<=h;y+=stepY){ ctx.beginPath(); ctx.moveTo(0,y); ctx.lineTo(w,y); ctx.stroke() }
+  ctx.restore();
+}
+
+function draw(){
+  const w = canvas.width / dpi, h = canvas.height / dpi;
+  ctx.clearRect(0,0,w,h);
+  grid(w,h);
+
+  for(let i=0;i<current.length;i++) current[i] = lerp(current[i], target[i], 0.09);
+
+  const leftPad = 24, rightPad = 24, topPad = 18, botPad = 28;
+  const innerW = w - leftPad - rightPad, innerH = h - topPad - botPad;
+
+  const n = current.length;
+  const pts = [];
+  for(let i=0;i<n;i++){
+    const t = (n===1?0:i/(n-1));
+    const x = leftPad + t*innerW;
+    let yNorm = 1 - current[i];
+    const ripple = Math.sin((t*8* Math.PI) - phase) * (rippleAmp/innerH);
+    yNorm = clamp(yNorm + ripple, 0, 1);
+    const y = topPad + yNorm * innerH;
+    pts.push({x,y});
+  }
+  rippleAmp *= 0.92;
+  phase += 0.12 + (Math.min(Math.max(weightedScore(),0),5)/5)*0.04;
+
+  ctx.save();
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for(const p of pts) ctx.lineTo(p.x,p.y);
+  ctx.lineTo(leftPad + innerW, topPad + innerH);
+  ctx.lineTo(leftPad,            topPad + innerH);
+  ctx.closePath();
+  const grad = ctx.createLinearGradient(0, topPad, 0, topPad+innerH);
+  grad.addColorStop(0,   "rgba(139,92,246,0.35)");
+  grad.addColorStop(0.55,"rgba(236,72,153,0.22)");
+  grad.addColorStop(1,   "rgba(0,0,0,0.0)");
+  ctx.fillStyle = grad;
+  ctx.fill();
+  ctx.restore();
+
+  const g2 = ctx.createLinearGradient(leftPad,0,leftPad+innerW,0);
+  g2.addColorStop(0,"rgba(139,92,246,0.95)");
+  g2.addColorStop(1,"rgba(236,72,153,0.95)");
+  ctx.lineWidth = 3;
+  ctx.strokeStyle = g2;
+  ctx.shadowColor="rgba(0,0,0,.5)"; ctx.shadowBlur=6;
+  ctx.beginPath();
+  ctx.moveTo(pts[0].x, pts[0].y);
+  for(const p of pts) ctx.lineTo(p.x,p.y);
+  ctx.stroke();
+  ctx.shadowBlur=0;
+
+  ctx.fillStyle = "#131318"; ctx.strokeStyle="#fff"; ctx.lineWidth=1.8;
+  for(const [i,p] of pts.entries()){
+    ctx.beginPath(); ctx.arc(p.x, p.y, 4.2, 0, Math.PI*2); ctx.fill(); ctx.stroke();
+    if (w>680){
+      ctx.fillStyle='rgba(255,255,255,.55)'; ctx.font='11px ui-sans-serif,system-ui';
+      const label = (i<n-1) ? String(i+1).padStart(2,'0') : 'Total';
+      ctx.textAlign='center'; ctx.fillText(label, p.x, topPad+innerH+16);
+      ctx.fillStyle="#131318";
+    }
+  }
+
+  requestAnimationFrame(draw);
+}
+draw();
+
+function updateOutputs(){
+  const score = weightedScore();
+  scoreEl.textContent = score.toFixed(2);
+  const dec = decisionFor(score);
+  windowEl.textContent = dec;
+  setPill(dec, score);
+  overlay.textContent = `Score ${score.toFixed(2)} • ${dec}`;
+
+  const list = suggestions();
+  suggEl.innerHTML = '';
+  list.forEach(t=>{ const li=document.createElement('li'); li.textContent=t; suggEl.appendChild(li) });
+  updateCalcTable();
+}
+function scheduleAll(){ scheduleUpdate(); updateOutputs(); }
+
+document.getElementById('presetHi').addEventListener('click', ()=>{
+  const preset = { 
+    cvss: 5, explAvail: 5, activeWild: 5, vector: 5, human: 5,
+    criticality: 5, internet: 5, apt: 4, ctrls: 5, env: 5, intel: 4,
+    time: 4, patchable: 4, chain: 4, epss: 5, geo: 3, impact: 5, sla: 4 
+  };
+
+  CATEGORIES.forEach(cat=>{
+    const val = preset[cat.key] ?? 0;
+    state[cat.key] = val;
+    const sel = document.getElementById(cat.key);
+    if (sel) {
+      sel.value = val;
+      updateSelectColor(sel, val);
+    }
+  });
+  scheduleAll();
+});
+
+document.getElementById('reset').addEventListener('click', ()=>{
+  CATEGORIES.forEach(cat=>{
+    state[cat.key] = 0;
+    const sel = document.getElementById(cat.key);
+    if (sel) {
+      sel.value = 0;
+      updateSelectColor(sel, 0);
+    }
+  });
+  scheduleAll();
+});
+
+
+updateOutputs();
+scheduleUpdate();
+</script>
+  <footer class="site-footer fade">
+    <div>
+      <strong>Risk Scoring Tool</strong> &mdash; For educational and internal use only.<br>
+      Data-driven risk prioritization for vulnerabilities. <br>
+      <span style="color:#ec4899">Tip:</span> Use the controls above to simulate different risk scenarios.<br>
+      <span style="color:#8b5cf6">Contact:</span> security-team@example.com
+    </div>
+  </footer>
+</body>
+</html>
