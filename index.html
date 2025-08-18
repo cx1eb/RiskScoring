@@ -140,7 +140,7 @@
         transition: background 0.25s ease, border-color 0.25s ease, color 0.25s ease;
         cursor: pointer;
     }
-    
+
     select:not([data-color]),
     select[data-color="default"] {
         background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .03));
@@ -148,9 +148,9 @@
         color: var(--text);
     }
 
-    
+
     select[data-color="0"] {
-        background: linear-gradient(180deg, rgba(255,255,255,.08), rgba(255,255,255,.03));
+        background: linear-gradient(180deg, rgba(255, 255, 255, .08), rgba(255, 255, 255, .03));
         border-color: var(--stroke);
         color: var(--text);
     }
@@ -184,7 +184,6 @@
         border-color: rgba(239, 68, 68, .45);
         color: #fee2e2;
     }
-
 
 
     select option {
@@ -224,7 +223,7 @@
         background: transparent
     }
 
-    
+
     .graph-wrap {
         position: relative;
         width: 100%;
@@ -247,7 +246,7 @@
         color: #fff;
         text-shadow: 0 2px 8px rgba(0, 0, 0, .45)
     }
-    
+
     footer.site-footer {
         width: 100%;
         background: var(--panel);
@@ -259,7 +258,7 @@
         margin-top: 40px;
         box-shadow: 0 -2px 16px rgba(0, 0, 0, 0.08);
     }
-    
+
     ul.list {
         margin: 6px 0 0 18px;
         padding: 0
@@ -269,7 +268,7 @@
         margin: 6px 0
     }
 
-    
+
     ::-webkit-scrollbar {
         width: 12px;
         height: 12px
@@ -337,12 +336,40 @@
         text-align: right;
     }
 
-    .calc-table th.sortable { 
-        cursor: pointer; user-select: none; 
+    .calc-table th.sortable {
+        cursor: pointer;
+        user-select: none;
     }
 
-    .calc-table th .arrow { 
-        margin-left: 6px; opacity:.7; 
+    .calc-table th .arrow {
+        margin-left: 6px;
+        opacity: .7;
+    }
+
+    .calc-table th.sortable {
+        position: relative;
+        white-space: nowrap;
+        cursor: pointer;
+        user-select: none;
+    }
+
+    .calc-table th.sortable::after {
+        content: '▲';
+        display: inline-block;
+        width: 1em;
+        margin-left: 6px;
+        opacity: .7;
+        visibility: hidden;
+    }
+
+    .calc-table th.sortable[data-sort="asc"]::after {
+        content: '▲';
+        visibility: visible;
+    }
+
+    .calc-table th.sortable[data-sort="desc"]::after {
+        content: '▼';
+        visibility: visible;
     }
 </style>
 </head>
@@ -611,10 +638,10 @@ function updateCalcTable() {
   const arrow = calcSort.dir === 'asc' ? '▲' : '▼';
   const headHTML = `
     <thead><tr>
-      <th class="sortable" data-key="label">Category ${calcSort.key==='label'?`<span class="arrow">${arrow}</span>`:''}</th>
-      <th class="sortable" data-key="w">Weight % ${calcSort.key==='w'?`<span class="arrow">${arrow}</span>`:''}</th>
-      <th class="sortable" data-key="val">Value (0–5) ${calcSort.key==='val'?`<span class="arrow">${arrow}</span>`:''}</th>
-      <th class="sortable" data-key="contrib">Contribution (pts) ${calcSort.key==='contrib'?`<span class="arrow">${arrow}</span>`:''}</th>
+      <th class="sortable" data-key="label"   data-sort="${calcSort.key==='label'  ? calcSort.dir : 'none'}">Category</th>
+      <th class="sortable" data-key="w"       data-sort="${calcSort.key==='w'      ? calcSort.dir : 'none'}">Weight %</th>
+      <th class="sortable" data-key="val"     data-sort="${calcSort.key==='val'    ? calcSort.dir : 'none'}">Value (0–5)</th>
+      <th class="sortable" data-key="contrib" data-sort="${calcSort.key==='contrib'? calcSort.dir : 'none'}">Contribution (pts)</th>
     </tr></thead>`;
 
   const bodyHTML = rows.map(r=>`
