@@ -474,6 +474,18 @@ const THRESHOLDS = [
 ];
 
 
+
+
+function totalRawWeight() {
+  return CATEGORIES.reduce((a, c) => a + (Number(c.w) || 0), 0) || 1;
+}
+
+function getEffectiveWeightMap() {
+  const tw = totalRawWeight();
+  return Object.fromEntries(CATEGORIES.map(c => [c.key, (Number(c.w) || 0) / tw]));
+}
+
+
 const state = Object.fromEntries(CATEGORIES.map(c=>[c.key,0]));
 
 function updateSelectColor(sel, val) {
@@ -519,7 +531,12 @@ const pill = document.getElementById('decisionPill');
 const suggEl = document.getElementById('suggestions');
 const overlay = document.getElementById('overlay');
 
-function weightedScore(){ return CATEGORIES.reduce((a,c)=> a + (c.w/100)*state[c.key], 0) }
+// function weightedScore(){ return CATEGORIES.reduce((a,c)=> a + (c.w/100)*state[c.key], 0) }
+function weightedScore(){
+  const eff = getEffectiveWeightMap();
+  return CATEGORIES.reduce((acc, c) => acc + eff[c.key] * state[c.key], 0);
+}
+
 function decisionFor(score){ return THRESHOLDS.find(t=> score >= t.min).label }
 function setPill(text, score) {
   const s = Math.min(Math.max(score, 0), 5);
@@ -627,33 +644,51 @@ function sortRows(rows, key, dir){
 }
 
 function updateCalcTable() {
-  const rows = CATEGORIES.map(c=>{
+  const eff = getEffectiveWeightMap();
+  const rows = CATEGORIES.map(c => {
     const val = state[c.key];
-    const contrib = (c.w/100 * val);
-    return { label: c.label, w: c.w, val, contrib: Number(contrib.toFixed(2)) };
+    const effFrac = eff[c.key];
+    const effPct = effFrac * 100;
+    const contribPts = effFrac * val;
+    return {
+      label: c.label,
+      w_raw: Number(c.w) || 0,
+      w_eff_pct: Number(effPct.toFixed(2)),
+      val,
+      contrib: Number(contribPts.toFixed(2))
+    };
   });
 
-  sortRows(rows, calcSort.key, calcSort.dir);
+  const keyMap = { w: 'w_eff_pct', label: 'label', val: 'val', contrib: 'contrib' };
+  const sortKey = keyMap[calcSort.key] || 'label';
+  const mult = calcSort.dir === 'asc' ? 1 : -1;
+  rows.sort((a, b) => {
+    const va = a[sortKey], vb = b[sortKey];
+    if (typeof va === 'string' || typeof vb === 'string') {
+      return mult * String(va).localeCompare(String(vb), undefined, { sensitivity: 'base' });
+    }
+    return mult * (va - vb);
+  });
 
-  const arrow = calcSort.dir === 'asc' ? '▲' : '▼';
   const headHTML = `
     <thead><tr>
       <th class="sortable" data-key="label"   data-sort="${calcSort.key==='label'  ? calcSort.dir : 'none'}">Category</th>
-      <th class="sortable" data-key="w"       data-sort="${calcSort.key==='w'      ? calcSort.dir : 'none'}">Weight %</th>
+      <th                                   >Raw Weight %</th>
+      <th class="sortable" data-key="w"       data-sort="${calcSort.key==='w'      ? calcSort.dir : 'none'}">Effective Weight %</th>
       <th class="sortable" data-key="val"     data-sort="${calcSort.key==='val'    ? calcSort.dir : 'none'}">Value (0–5)</th>
       <th class="sortable" data-key="contrib" data-sort="${calcSort.key==='contrib'? calcSort.dir : 'none'}">Contribution (pts)</th>
     </tr></thead>`;
 
-  const bodyHTML = rows.map(r=>`
+  const bodyHTML = rows.map(r => `
     <tr>
       <td>${r.label}</td>
-      <td>${r.w}%</td>
+      <td>${r.w_raw}%</td>
+      <td>${r.w_eff_pct.toFixed(2)}%</td>
       <td>${r.val}</td>
       <td>${r.contrib.toFixed(2)}</td>
     </tr>`).join('');
 
   calcDetails.innerHTML = `<table>${headHTML}<tbody>${bodyHTML}</tbody></table>`;
-
   bindCalcSortHandlers();
 }
 
