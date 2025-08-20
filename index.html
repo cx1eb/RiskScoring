@@ -551,16 +551,25 @@ function setPill(text, score) {
   pill.style.boxShadow   = `0 0 0 1px hsla(${hue}, 90%, 60%, .28) inset`;
 }
 
-
 // SUGGESTION_RULES: Customize suggestions and their conditions as needed.
-// Each object should have a 'text' (the suggestion) and a 'condition' (function returning true/false based on state).
-// You can add, remove, or change rules to match new categories, thresholds, or business logic.
+// There are two types of suggestion rules:
+//
+// 1. Global rules (no 'for' property):
+//    - Apply to the overall state and score.
+//    - Format: { text: "...", condition: (state, score, ctx) => ... }
+//    - ctx contains: eff (effective weights), contrib (contribution map)
+//
+// 2. Category-scoped rules (with 'for' property):
+//    - Apply to specific categories (single key or array of keys).
+//    - Format: { for: 'key' | ['key1','key2'], text: "..." | (ctx) => ..., condition: (state, score, ctx) => ... }
+//    - ctx contains: score, eff, contrib, key, label, value (0..5)
+//    - If text is a function, it receives ctx for dynamic output.
+//
 // Values are integers 0–5. Using <= 0.5 triggers only at 0; use <= 1 for "low". Exact equality (===) is strict; use >= for ranges if needed.
-// Example:
-// {
-//   text: "Custom suggestion text.",
-//   condition: (state) => state.newcat >= 3
-// },
+// Example global:
+//   { text: "Custom suggestion text.", condition: (state) => state.newcat >= 3 }
+// Example category-scoped:
+//   { for: 'cvss', text: ctx => `High ${ctx.label}: ...`, condition: (state, score, ctx) => ctx.value >= 4 }
 const SUGGESTION_RULES = [
   {
     text: "CISA KEV: treat as emergency; patch/mitigate immediately, add detections, monitor IOCs.",
@@ -589,8 +598,31 @@ const SUGGESTION_RULES = [
   {
     text: "Patch unavailable: apply vendor mitigations, disable vulnerable features, sandbox, isolate.",
     condition: (state) => state.patchable <= 0.5
+  },
+
+
+  // Example A: Only when Internet exposure is high AND total score is high
+  {
+    for: 'internet',
+    text: (ctx) => `High ${ctx.label}: enforce WAF rules, rate limits, and geo/IP allowlists.`,
+    condition: (state, score, ctx) => ctx.value >= 4 && score >= 3.5
+  },
+
+  // Example B: If a category’s contribution is big (it’s carrying the score)
+  {
+    for: ['cvss','explAvail','activeWild'],
+    text: (ctx) => `${ctx.label} is driving risk (≈${ctx.contrib.toFixed(2)} pts): prioritize fixes/mitigations here.`,
+    condition: (state, score, ctx) => ctx.contrib >= 1.2 // ~24% of total if score ~5
+  },
+
+  // Example C: Category low but weight high -->> suggest compensating control
+  {
+    for: 'ctrls',
+    text: 'Weak compensating controls: tighten MFA, RBAC, and add targeted detections.',
+    condition: (state, score, ctx) => ctx.value <= 1 && ctx.eff[ctx.key] >= 0.08 // ≥8% effective weight
   }
 ];
+
 
 
 const DEFAULT_SUGGESTION =
@@ -598,15 +630,47 @@ const DEFAULT_SUGGESTION =
 
 
 function suggestions() {
-  const list = SUGGESTION_RULES
-    .filter(rule => rule.condition(state))
-    .map(rule => rule.text);
+  const score = weightedScore();
+  const eff = getEffectiveWeightMap();
+  const contrib = Object.fromEntries(
+    CATEGORIES.map(c => [c.key, eff[c.key] * state[c.key]])
+  );
+  const labelByKey = Object.fromEntries(CATEGORIES.map(c => [c.key, c.label]));
 
-  if (list.length === 0) list.push(DEFAULT_SUGGESTION);
-  return list.slice(0, 6);
+  const out = [];
+
+  for (const rule of SUGGESTION_RULES) {
+    if (!rule.for) {
+      if (rule.condition?.(state, score, { eff, contrib })) {
+        out.push(typeof rule.text === 'function' ? rule.text({ score }) : rule.text);
+      }
+      continue;
+    }
+
+    // category scoped rule: rule.for can be 'cvss' or ['cvss','internet']
+    const keys = Array.isArray(rule.for) ? rule.for : [rule.for];
+    for (const k of keys) {
+      if (!state.hasOwnProperty(k)) continue;
+      const ctx = { 
+        score, 
+        eff, 
+        contrib, 
+        key: k, 
+        label: labelByKey[k], 
+        value: state[k]
+      };
+      if (rule.condition?.(state, score, ctx)) {
+        const text = typeof rule.text === 'function' 
+          ? rule.text(ctx) 
+          : (rule.text || '').replace(/\{cat\}/g, ctx.label);
+        out.push(text);
+      }
+    }
+  }
+
+  if (out.length === 0) out.push(DEFAULT_SUGGESTION);
+  return out.slice(0, 6);
 }
-
-
 
 const canvas = document.getElementById('chart');
 const ctx = canvas.getContext('2d');
