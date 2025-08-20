@@ -29,11 +29,11 @@ A lightweight web-based tool that allows you to score potential risks to a compa
 * [x] Fixed table row resizing issue when sorting
 * [x] Beautified CSS for cleaner visuals
 * [x] overall score calculation based on category weights.
+* [x] Add more **default suggestion rules** for common scenarios.
+* [x] Documentation for how to **extend categories & rules** easily.
 
 ### ⏳ To Be Added
 
-* [ ] Add more **default suggestion rules** for common scenarios.
-* [ ] Documentation for how to **extend categories & rules** easily.
 * [ ] Export results as **CSV or JSON** for reporting.
 * [ ] UI polish: animations or hover tooltips for clarity.
 * [ ] Add **unit tests** for calculation logic.
