@@ -28,7 +28,7 @@ A lightweight web-based tool that allows you to score potential risks to a compa
 * [x] Enabled sorting in “Calculation Details” table (asc/desc)
 * [x] Fixed table row resizing issue when sorting
 * [x] Beautified CSS for cleaner visuals
-* [x] overall score calculation** based on category weights.
+* [x] overall score calculation based on category weights.
 
 ### ⏳ To Be Added
 
