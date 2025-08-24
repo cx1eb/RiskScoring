@@ -371,6 +371,34 @@
         content: '▼';
         visibility: visible;
     }
+
+    #tooltip {
+      position: fixed;
+      z-index: 9999;
+      max-width: 320px;
+      background: rgba(17,17,20,.96);
+      color: #e7e7ec;
+      border: 1px solid rgba(255,255,255,.12);
+      border-radius: 10px;
+      padding: 10px 12px;
+      box-shadow: 0 10px 26px rgba(0,0,0,.45);
+      font-size: 12px;
+      line-height: 1.35;
+      pointer-events: none;
+      opacity: 0;
+      transform: translate(-50%, -8px);
+      transition: opacity .12s ease;
+      white-space: normal;
+    }
+
+    #tooltip .t-k { 
+      color: #a9adb7; 
+    }
+
+    #tooltip .t-v { 
+      font-weight: 700; 
+    }
+
 </style>
 </head>
 <body>
@@ -434,33 +462,103 @@
 
 
 <script>
-// DATA SECTION: To add more categories, add an object to CATEGORIES like below:
-// {key:'newkey', w:weightPercent, label:'Display Name'},
-// Example:
-// {key:'newcat', w:4, label:'New Category Placeholder'},
-// NOTE: Aim for weights to sum to ~100 so the overall score stays in a 0–5 range.
-// If weights differ significantly, update THRESHOLDS or clamp score before decisionFor.
+
+// DATA SECTION: Categories define each scoring dimension.
+// Each object has:
+//   key:   unique identifier (used in state, controls, exports, etc.)
+//   w:     raw weight (%) contribution toward the overall score
+//   label: human readable name shown in the UI
+//   help:  { what: short description of what this input measures,
+//            ex:   example values / guidance for selecting 0–5 }
+// 
+// Notes:
+// - Values are scored on a 0–5 scale. Higher means greater risk, unless
+//   the category is compensating/mitigating (where low may be worse).
+// - Weights should sum to ~100 so that the weightedScore stays in the 0–5 range.
+// - Update THRESHOLDS if you adjust weights significantly or change the scoring scale.
+// - Tooltips, aria labels, exports, and suggestions should be able to pull directly from help.
+// - To add a new category, add an object with the same structure.
+//   Example:
+//     { key:'newcat', w:4, label:'New Category Placeholder',
+//       help:{ what:'Brief description', ex:'Example: 0 = none, 5 = severe' } }
 const CATEGORIES = [
-  {key:'cvss', w:10, label:'CVSS Severity'},
-  {key:'explAvail', w:10, label:'Exploit Availability'},
-  {key:'activeWild', w:10, label:'Actively Exploited'},
-  {key:'vector', w:5, label:'Exploitation Vector'},
-  {key:'human', w:5, label:'Human Interaction'},
-  {key:'criticality', w:10, label:'Server Criticality'},
-  {key:'internet', w:10, label:'Internet Exposure'},
-  {key:'apt', w:5, label:'APT Association'},
-  {key:'ctrls', w:5, label:'Compensating Controls'},
-  {key:'env', w:5, label:'Environment Tier'},
-  {key:'intel', w:5, label:'Threat Intel Priority'},
-  {key:'time', w:3, label:'Time Since Disclosure'},
-  {key:'patchable', w:3, label:'Patch Achievability'},
-  {key:'chain', w:3, label:'Chaining Potential'},
-  {key:'epss', w:3, label:'Exploit Prediction Scoring'},
-  {key:'geo', w:2, label:'Geo Specific Relevance'},
-  {key:'impact', w:3, label:'User/Customer Impact'},
-  {key:'sla', w:3, label:'SLA Impact'},
-  // {key:'newcat', w:4, label:'New Category Placeholder'}, // <-- Example placeholder
+  {key:'cvss', w:10, label:'CVSS Severity',
+   help:{ what:'Base severity of the vulnerability (CVSS v3.x/4).',
+          ex:'e.g., CVSS 9.8 -> 5; CVSS 4.0 -> 2' }},
+
+  {key:'explAvail', w:10, label:'Exploit Availability',
+   help:{ what:'Whether reliable exploit code exists/is circulating.',
+          ex:'Public PoC/Metasploit -> 4–5; none known -> 0–1' }},
+
+  {key:'activeWild', w:10, label:'Actively Exploited',
+   help:{ what:'Evidence of in-the-wild exploitation (e.g., CISA KEV).',
+          ex:'On KEV / confirmed incidents -> 5' }},
+
+  {key:'vector', w:5, label:'Exploitation Vector',
+   help:{ what:'How the vuln can be reached.',
+          ex:'Network -> 5; Adjacent -> 3; Local/Physical -> 1–0' }},
+
+  {key:'human', w:5, label:'Human Interaction',
+   help:{ what:'User action required to exploit?',
+          ex:'No user action -> 4–5; needs convincing click -> 1–2' }},
+
+  {key:'criticality', w:10, label:'Server Criticality',
+   help:{ what:'Business/system criticality of the affected asset.',
+          ex:'Payments/PII/production core -> 4–5; lab/dev -> 1–2' }},
+
+  {key:'internet', w:10, label:'Internet Exposure',
+   help:{ what:'Externally reachable from the internet?',
+          ex:'Public API/portal -> 4–5; internal only -> 0–1' }},
+
+  {key:'apt', w:5, label:'APT Association',
+   help:{ what:'Linked to known targeted/APT actor TTPs.',
+          ex:'Actor actively using this vuln -> 4–5' }},
+
+  {key:'ctrls', w:5, label:'Compensating Controls',
+   help:{ what:'Strength of mitigations reducing exploitability/impact.',
+          ex:'Strong MFA/WAF/segmentation -> 4–5; weak/none -> 0–1' }},
+
+  {key:'env', w:5, label:'Environment Tier',
+   help:{ what:'Sensitivity/tier of the environment.',
+          ex:'Prod with customer data -> 4–5; test/sandbox -> 1–2' }},
+
+  {key:'intel', w:5, label:'Threat Intel Priority',
+   help:{ what:'Current intel pressure (chatter/IOCs targeting you).',
+          ex:'Active chatter/IOCs -> 4–5; quiet -> 0–1' }},
+
+  {key:'time', w:3, label:'Time Since Disclosure',
+   help:{ what:'How long it’s been publicly known.',
+          ex:'Old & unpatched (months) -> 3–5; very new -> 0–1' }},
+
+  {key:'patchable', w:3, label:'Patch Achievability',
+   help:{ what:'How feasible it is to patch quickly.',
+          ex:'No patch/major downtime -> 0–1; easy patch -> 4–5' }},
+
+  {key:'chain', w:3, label:'Chaining Potential',
+   help:{ what:'How well this combines with other vulns to escalate.',
+          ex:'Common privilege-esc chain -> 4–5' }},
+
+  {key:'epss', w:3, label:'Exploit Prediction Scoring',
+   help:{ what:'EPSS-like likelihood proxy of exploitation.',
+          ex:'Top percentile -> 4–5; very low -> 0–1' }},
+
+  {key:'geo', w:2, label:'Geo Specific Relevance',
+   help:{ what:'Targeting relevance for your region/sector.',
+          ex:'You’re in the active targeting region -> 3–5' }},
+
+  {key:'impact', w:3, label:'User/Customer Impact',
+   help:{ what:'Blast radius to customers/users if exploited.',
+          ex:'Data exfil/service outage -> 4–5; negligible -> 0–1' }},
+
+  {key:'sla', w:3, label:'SLA Impact',
+   help:{ what:'Regulatory/contractual/SLA implications.',
+          ex:'Penalties/obligations triggered -> 4–5' }},
+  // {key:'newcat', w:4, label:'New Category Placeholder', help:{ what:'...', ex:'...' }},
 ];
+
+
+
+
 
 
 // THRESHOLDS: Customize patch windows and labels as needed.
@@ -500,6 +598,25 @@ function updateSelectColor(sel, val) {
 
 
 const controls = document.getElementById('controls');
+
+const tipEl = document.getElementById('tooltip');
+function showTip(html, x, y){
+  if (!tipEl) return;
+  tipEl.innerHTML = html;
+  tipEl.style.left = `${x}px`;
+  tipEl.style.top  = `${y-12}px`;
+  tipEl.style.opacity = '1';
+  tipEl.setAttribute('aria-hidden','false');
+}
+function moveTip(x,y){ if (!tipEl) return;
+  tipEl.style.left = `${x}px`;
+  tipEl.style.top  = `${y-12}px`;
+}
+function hideTip(){ if (!tipEl) return;
+  tipEl.style.opacity='0';
+  tipEl.setAttribute('aria-hidden','true');
+}
+
 function buildSelect(id){
   const wrap = document.createElement('div'); wrap.className='select-wrap';
   const sel = document.createElement('select'); sel.id=id; sel.setAttribute('aria-label', id);
@@ -522,12 +639,32 @@ function buildSelect(id){
   return wrap;
 }
 
-
 CATEGORIES.forEach(c=>{
   const row = document.createElement('div'); row.className='row';
-  const lbl = document.createElement('label'); lbl.htmlFor = c.key;
-  lbl.innerHTML=`<span>${c.label}</span><span>${c.w}%</span>`;
-  row.append(lbl, buildSelect(c.key));
+
+  const lbl = document.createElement('label');
+  lbl.htmlFor = c.key;
+  lbl.innerHTML = `<span>${c.label}</span><span>${c.w}%</span>`;
+
+  const wrap = buildSelect(c.key);
+  const sel  = wrap.querySelector('select');
+
+  const titleText = c.help ? `${c.help.what}  Example: ${c.help.ex}` : c.label;
+  sel.setAttribute('aria-label', `${c.label}. ${titleText}`);
+  sel.title = titleText;
+
+  const tipHTML = c.help
+    ? `<div><span class="t-k">What:</span> ${c.help.what}</div>
+       <div><span class="t-k">Example:</span> <span class="t-v">${c.help.ex}</span></div>`
+    : `<div>${c.label}</div>`;
+
+  [row, wrap].forEach(el=>{
+    el.addEventListener('mouseenter', e => showTip(tipHTML, e.clientX, e.clientY));
+    el.addEventListener('mousemove',  e => moveTip(e.clientX,  e.clientY));
+    el.addEventListener('mouseleave', hideTip, {passive:true});
+  });
+
+  row.append(lbl, wrap);
   controls.appendChild(row);
 });
 
@@ -537,7 +674,6 @@ const pill = document.getElementById('decisionPill');
 const suggEl = document.getElementById('suggestions');
 const overlay = document.getElementById('overlay');
 
-// function weightedScore(){ return CATEGORIES.reduce((a,c)=> a + (c.w/100)*state[c.key], 0) }
 function weightedScore(){
   const eff = getEffectiveWeightMap();
   return CATEGORIES.reduce((acc, c) => acc + eff[c.key] * state[c.key], 0);
@@ -1064,5 +1200,6 @@ scheduleUpdate();
       <span style="color:#8b5cf6">Contact:</span> security-team@example.com
     </div>
   </footer>
+  <div id="tooltip" role="tooltip" aria-hidden="true"></div>
 </body>
 </html>
