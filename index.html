@@ -240,7 +240,7 @@
     .overlayText {
         position: absolute;
         right: 12px;
-        top: 2px;
+        top: 15px;
         font-weight: 700;
         font-size: 13px;
         color: #fff;
@@ -400,7 +400,13 @@
     </section>
 
     <section class="card fade">
-        <div class="head"><strong>Calculation Details</strong></div>
+        <div class="head">
+          <strong>Calculation Details</strong>
+          <div>
+            <button id="exportCSV">Export CSV</button>
+            <button id="exportJSON">Export JSON</button>
+          </div>
+        </div>
         <div class="body">
             <div id="calcDetails" class="calc-table"></div>
         </div>
@@ -857,6 +863,98 @@ function draw(){
 }
 draw();
 
+
+function computeCalcRows() {
+  const eff = getEffectiveWeightMap();
+  return CATEGORIES.map(c => {
+    const val = state[c.key];
+    const effFrac = eff[c.key];
+    const effPct = effFrac * 100;
+    const contribPts = effFrac * val;
+    return {
+      key: c.key,
+      label: c.label,
+      w_raw: Number(c.w) || 0,
+      w_eff_pct: Number(effPct.toFixed(2)),
+      val,
+      contrib: Number(contribPts.toFixed(2))
+    };
+  });
+}
+
+function buildExportPayload() {
+  const score = Number(weightedScore().toFixed(2));
+  return {
+    generatedAt: new Date().toISOString(),
+    overall: { score, window: decisionFor(score) },
+    inputs: Object.fromEntries(CATEGORIES.map(c => [c.key, state[c.key]])),
+    categories: computeCalcRows(),
+    suggestions: suggestions()
+  };
+}
+
+function download(filename, mime, data) {
+  const blob = new Blob([data], { type: mime });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = filename;
+  document.body.appendChild(a);
+  a.click();
+  setTimeout(() => {
+    URL.revokeObjectURL(a.href);
+    a.remove();
+  }, 0);
+}
+
+function exportJSON() {
+  const payload = buildExportPayload();
+  download(`risk-report-${Date.now()}.json`, 'application/json', JSON.stringify(payload, null, 2));
+}
+
+function toCSV(rows) {
+  const headers = ['Category', 'Raw Weight %', 'Effective Weight %', 'Value', 'Contribution (pts)'];
+  const lines = [headers.join(',')];
+  for (const r of rows) {
+    lines.push(
+      [r.label, r.w_raw, r.w_eff_pct, r.val, r.contrib]
+        .map(v => `"${String(v).replace(/"/g, '""')}"`)
+        .join(',')
+    );
+  }
+  return lines.join('\n');
+}
+
+function exportCSV() {
+  const score = Number(weightedScore().toFixed(2));
+  const rows = computeCalcRows();
+
+  const keyMap = { w: 'w_eff_pct', label: 'label', val: 'val', contrib: 'contrib' };
+  const sortKey = keyMap[calcSort.key] || 'label';
+  const mult = calcSort.dir === 'asc' ? 1 : -1;
+  rows.sort((a, b) => {
+    const va = a[sortKey], vb = b[sortKey];
+    if (typeof va === 'string' || typeof vb === 'string') {
+      return mult * String(va).localeCompare(String(vb), undefined, { sensitivity: 'base' });
+    }
+    return mult * (va - vb);
+  });
+
+  const preface = [
+    `Generated At,${new Date().toISOString()}`,
+    `Overall Score,${score}`,
+    `Patch Window,${decisionFor(score)}`,
+    ''
+  ].join('\n');
+
+  const csvBody = toCSV(rows);
+  const sugg = suggestions().map(s => `- ${s}`).join('\n');
+  const csv = `${preface}${csvBody}\n\nSuggestions\n${sugg}`;
+
+  download(`risk-report-${Date.now()}.csv`, 'text/csv', csv);
+}
+
+
+
 function updateOutputs(){
   const score = weightedScore();
   scoreEl.textContent = score.toFixed(2);
@@ -922,6 +1020,8 @@ document.getElementById('presetLow')?.addEventListener('click', () => runPreset(
 document.getElementById('presetRand')?.addEventListener('click', runRandom);
 document.getElementById('reset')?.addEventListener('click', runReset);
 
+document.getElementById('exportCSV')?.addEventListener('click', exportCSV);
+document.getElementById('exportJSON')?.addEventListener('click', exportJSON);
 
 
 
