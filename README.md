@@ -25,18 +25,17 @@ A lightweight web-based tool that allows you to score potential risks to a compa
 * [x] Added Low risk example button and randomize button for charts/graphs
 * [x] Removed css comments auto-added by GitHub Copilot complete
 * [x] Made High/Low example buttons use fallback preset (not hardcoded)
-* [x] Enabled sorting in “Calculation Details” table (asc/desc)
+* [x] Enabled sorting in "Calculation Details" table (asc/desc)
 * [x] Fixed table row resizing issue when sorting
 * [x] Beautified CSS for cleaner visuals
 * [x] overall score calculation based on category weights.
-* [x] Add more **default suggestion rules** for common scenarios.
-* [x] Documentation for how to **extend categories & rules** easily.
+* [x] Add more default suggestion rules for common scenarios.
+* [x] Documentation for how to extend categories & rules easily.
+* [x] Export results as CSV or JSON for reporting.
 
 ### ⏳ To Be Added
 
-* [ ] Export results as **CSV or JSON** for reporting.
 * [ ] UI polish: animations or hover tooltips for clarity.
-* [ ] Add **unit tests** for calculation logic.
 * [ ] Theme switcher.
 
 ---
